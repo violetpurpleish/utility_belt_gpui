@@ -178,3 +178,75 @@ impl Toolbar {
         bar
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use gpui::TestAppContext;
+
+    #[gpui::test]
+    fn test_toolbar_build(cx: &mut TestAppContext) {
+        cx.update(|app| {
+            gpui_component::theme::init(app);
+        });
+
+        let _element = cx.read(|app| Toolbar::new("Test App").build(app).into_any_element());
+    }
+
+    #[gpui::test]
+    fn test_toolbar_with_children(cx: &mut TestAppContext) {
+        cx.update(|app| {
+            gpui_component::theme::init(app);
+        });
+
+        let _element = cx.read(|app| {
+            Toolbar::new("My App")
+                .child(div().child("Left"))
+                .child(div().child("Right"))
+                .trailing(div().child("End"))
+                .build(app)
+                .into_any_element()
+        });
+    }
+
+    #[gpui::test]
+    fn test_toolbar_multiple_trailing(cx: &mut TestAppContext) {
+        cx.update(|app| {
+            gpui_component::theme::init(app);
+        });
+
+        let _element = cx.read(|app| {
+            Toolbar::new("App")
+                .child(div())
+                .child(div())
+                .child(div())
+                .trailing(div())
+                .trailing(div())
+                .build(app)
+                .into_any_element()
+        });
+    }
+
+    #[gpui::test]
+    fn test_toolbar_custom_drag_handler(cx: &mut TestAppContext) {
+        cx.update(|app| {
+            gpui_component::theme::init(app);
+        });
+
+        let _element = cx.read(|app| {
+            Toolbar::new("Test App")
+                .on_drag(|_: &MouseDownEvent, _: &mut Window, _: &mut App| {})
+                .build(app)
+                .into_any_element()
+        });
+    }
+
+    #[gpui::test]
+    fn test_toolbar_empty_title(cx: &mut TestAppContext) {
+        cx.update(|app| {
+            gpui_component::theme::init(app);
+        });
+
+        let _element = cx.read(|app| Toolbar::new("").build(app).into_any_element());
+    }
+}

@@ -216,3 +216,296 @@ impl Sidebar {
             .into_any_element()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use gpui::TestAppContext;
+
+    // ---- SidebarState unit tests ----
+
+    #[test]
+    fn test_new_open() {
+        let state = SidebarState::new(true, 260.0);
+        assert!(state.is_open);
+        assert_eq!(state.current_width, 260.0);
+        assert_eq!(state.anim_id, 0);
+    }
+
+    #[test]
+    fn test_new_closed() {
+        let state = SidebarState::new(false, 260.0);
+        assert!(!state.is_open);
+        assert_eq!(state.current_width, 0.0);
+        assert_eq!(state.anim_id, 0);
+    }
+
+    #[test]
+    fn test_new_custom_width() {
+        let state = SidebarState::new(true, 400.0);
+        assert_eq!(state.current_width, 400.0);
+        assert!(state.is_open);
+    }
+
+    #[test]
+    fn test_toggle_open_closed() {
+        let mut state = SidebarState::new(true, 260.0);
+        state.toggle();
+        assert!(!state.is_open);
+        assert_eq!(state.anim_id, 1);
+
+        state.toggle();
+        assert!(state.is_open);
+        assert_eq!(state.anim_id, 2);
+    }
+
+    #[test]
+    fn test_toggle_anim_id_wrapping() {
+        let mut state = SidebarState::new(false, 260.0);
+        state.anim_id = usize::MAX;
+        state.toggle();
+        assert!(state.is_open);
+        assert_eq!(state.anim_id, 0);
+    }
+
+    // ---- SidebarState animation tests (require gpui context) ----
+
+    struct AnimateView {
+        state: SidebarState,
+    }
+
+    impl gpui::Render for AnimateView {
+        fn render(
+            &mut self,
+            window: &mut Window,
+            _cx: &mut gpui::Context<Self>,
+        ) -> impl IntoElement {
+            self.state.animate(window);
+            div()
+        }
+    }
+
+    #[gpui::test]
+    fn test_animate_opens(cx: &mut TestAppContext) {
+        cx.update(|app| {
+            gpui_component::theme::init(app);
+        });
+
+        let mut state = SidebarState::new(false, 260.0);
+        state.toggle();
+
+        let (view, cx) = cx.add_window_view(|_window, _cx| AnimateView { state });
+
+        view.update(cx, |v, _| {
+            assert!(v.state.current_width > 0.0 && v.state.current_width < 260.0);
+            assert!(v.state.is_open);
+        });
+    }
+
+    #[gpui::test]
+    fn test_animate_closes(cx: &mut TestAppContext) {
+        cx.update(|app| {
+            gpui_component::theme::init(app);
+        });
+
+        let mut state = SidebarState::new(true, 260.0);
+        state.toggle();
+
+        let (view, cx) = cx.add_window_view(|_window, _cx| AnimateView { state });
+
+        view.update(cx, |v, _| {
+            assert!(v.state.current_width > 0.0 && v.state.current_width < 260.0);
+            assert!(!v.state.is_open);
+        });
+    }
+
+    #[gpui::test]
+    fn test_animate_full_open(cx: &mut TestAppContext) {
+        cx.update(|app| {
+            gpui_component::theme::init(app);
+        });
+
+        let state = SidebarState::new(true, 260.0);
+
+        let (view, cx) = cx.add_window_view(|_window, _cx| AnimateView { state });
+
+        view.update(cx, |v, _| {
+            assert_eq!(v.state.current_width, 260.0);
+        });
+    }
+
+    #[gpui::test]
+    fn test_animate_full_closed(cx: &mut TestAppContext) {
+        cx.update(|app| {
+            gpui_component::theme::init(app);
+        });
+
+        let state = SidebarState::new(false, 260.0);
+
+        let (view, cx) = cx.add_window_view(|_window, _cx| AnimateView { state });
+
+        view.update(cx, |v, _| {
+            assert_eq!(v.state.current_width, 0.0);
+        });
+    }
+
+    #[gpui::test]
+    fn test_animate_converges_to_target(cx: &mut TestAppContext) {
+        cx.update(|app| {
+            gpui_component::theme::init(app);
+        });
+
+        let state = SidebarState::new(false, 260.0);
+
+        let (view, cx) = cx.add_window_view(|_window, _cx| AnimateView { state });
+
+        // Toggle to start animating from 0 toward 260
+        view.update(cx, |v, _| {
+            assert_eq!(v.state.current_width, 0.0);
+            v.state.toggle();
+        });
+
+        let step = (260.0_f32 / 12.0_f32).max(2.0);
+        let steps_needed = (260.0_f32 / step).ceil() as usize;
+
+        // Trigger repeated renders to advance the animation
+        for _ in 0..steps_needed {
+            cx.update(|window, app| {
+                let _ = window.draw(app);
+            });
+        }
+
+        view.update(cx, |v, _| {
+            assert_eq!(v.state.current_width, 260.0);
+            assert!(v.state.is_open);
+        });
+    }
+
+    // ---- Sidebar builder tests ----
+
+    #[test]
+    fn test_sidebar_defaults() {
+        let sidebar = Sidebar::new();
+        assert_eq!(sidebar.title, SharedString::from("Sidebar"));
+        assert!(sidebar.header_actions.is_empty());
+        assert!(sidebar.content.is_none());
+        assert!(sidebar.drag_handler.is_none());
+    }
+
+    #[test]
+    fn test_sidebar_builder_chaining() {
+        let sidebar = Sidebar::new()
+            .title("My Sidebar")
+            .header_action(div())
+            .content(div().child("Body"))
+            .on_drag(|_, _, _| {});
+
+        assert_eq!(sidebar.title, SharedString::from("My Sidebar"));
+        assert_eq!(sidebar.header_actions.len(), 1);
+        assert!(sidebar.content.is_some());
+        assert!(sidebar.drag_handler.is_some());
+    }
+
+    #[gpui::test]
+    fn test_sidebar_build_open(cx: &mut TestAppContext) {
+        cx.update(|app| {
+            gpui_component::theme::init(app);
+        });
+
+        let mut state = SidebarState::new(true, 200.0);
+        let cx = cx.add_empty_window();
+
+        cx.update(|window, app| {
+            let _element = Sidebar::new()
+                .title("Test")
+                .content(div().child("Content"))
+                .build(&mut state, window, app)
+                .into_any_element();
+        });
+    }
+
+    #[gpui::test]
+    fn test_sidebar_build_closed(cx: &mut TestAppContext) {
+        cx.update(|app| {
+            gpui_component::theme::init(app);
+        });
+
+        let mut state = SidebarState::new(false, 200.0);
+        let cx = cx.add_empty_window();
+
+        cx.update(|window, app| {
+            let _element = Sidebar::new()
+                .title("Test")
+                .build(&mut state, window, app)
+                .into_any_element();
+        });
+    }
+
+    struct SidebarBuildView {
+        sidebar_state: SidebarState,
+        title: SharedString,
+    }
+
+    impl gpui::Render for SidebarBuildView {
+        fn render(
+            &mut self,
+            window: &mut Window,
+            cx: &mut gpui::Context<Self>,
+        ) -> impl IntoElement {
+            Sidebar::new()
+                .title(self.title.clone())
+                .content(div().child("Content"))
+                .build(&mut self.sidebar_state, window, cx)
+        }
+    }
+
+    #[gpui::test]
+    fn test_sidebar_build_animates_state(cx: &mut TestAppContext) {
+        cx.update(|app| {
+            gpui_component::theme::init(app);
+        });
+
+        let mut state = SidebarState::new(false, 200.0);
+        state.toggle();
+
+        let (view, cx) = cx.add_window_view(|_window, _cx| SidebarBuildView {
+            sidebar_state: state,
+            title: "Test".into(),
+        });
+
+        view.update(cx, |v, _| {
+            assert!(v.sidebar_state.current_width > 0.0);
+            assert!(v.sidebar_state.current_width < 200.0);
+        });
+
+        let w1 = view.update(cx, |v, _| v.sidebar_state.current_width);
+
+        // Trigger another render cycle by drawing the window
+        cx.update(|window, app| {
+            let _ = window.draw(app);
+        });
+
+        let w2 = view.update(cx, |v, _| v.sidebar_state.current_width);
+        assert!(w2 > w1);
+        assert!(w2 <= 200.0);
+    }
+
+    #[gpui::test]
+    fn test_sidebar_build_with_actions(cx: &mut TestAppContext) {
+        cx.update(|app| {
+            gpui_component::theme::init(app);
+        });
+
+        let mut state = SidebarState::new(true, 300.0);
+        let cx = cx.add_empty_window();
+
+        cx.update(|window, app| {
+            let _element = Sidebar::new()
+                .title("History")
+                .header_action(div().child("X"))
+                .header_action(div().child("Y"))
+                .build(&mut state, window, app)
+                .into_any_element();
+        });
+    }
+}
