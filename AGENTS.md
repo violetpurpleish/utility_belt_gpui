@@ -10,6 +10,7 @@ Reusable gpui widgets built on gpui 0.2.2 and gpui-component 0.5.1.
 
 ## Project Structure
 - `src/lib.rs` — crate root, module declarations
+- `src/theme.rs` — Catppuccin Violet light/dark `ThemeConfig` factories and installer
 - `src/toolbar.rs` — `Toolbar` builder, `default_drag_handler`, `DragHandler` type
 - `src/sidebar.rs` — `SidebarState`, `Sidebar` builder
 
@@ -19,6 +20,18 @@ Reusable gpui widgets built on gpui 0.2.2 and gpui-component 0.5.1.
 - objc 0.2 (macOS window drag)
 
 ## Key API
+
+### Theme
+```rust
+app.run(|cx| {
+    gpui_component::init(cx);
+    utility_belt_gpui::theme::apply(cx);
+    // app setup...
+});
+```
+
+`theme::apply` must run after `gpui_component::init`; it preserves the
+system-selected light/dark mode while replacing both theme configurations.
 
 ### Toolbar
 ```rust

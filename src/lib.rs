@@ -5,6 +5,7 @@
 //!
 //! ## Modules
 //!
+//! - [`theme`] — A reusable Catppuccin Violet light/dark theme.
 //! - [`toolbar`] — A draggable titlebar/toolbar widget.
 //! - [`sidebar`] — An animated collapsible sidebar widget with integrated state.
 //!
@@ -16,4 +17,5 @@
 extern crate objc;
 
 pub mod sidebar;
+pub mod theme;
 pub mod toolbar;
