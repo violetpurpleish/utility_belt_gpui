@@ -15,7 +15,7 @@ Add the repository as a Git dependency:
 
 ```toml
 [dependencies]
-utility_belt_gpui = { git = "https://github.com/gitwyrm/utility_belt_gpui.git" }
+utility_belt_gpui = { git = "https://github.com/violetpurpleish/utility_belt_gpui.git" }
 ```
 
 When developing against a local checkout, use a path dependency instead:
